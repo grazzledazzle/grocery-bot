@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Kroger / Harris Teeter API Client - Core Functions
--------------------------------------------------
-Performs authentication (client_credentials flow) and basic product search.
-Replaces the Bash version with a structured, Pythonic implementation.
+Kroger / Harris Teeter CE API Client - Python Version
+-----------------------------------------------------
+Performs client_credentials authentication and product search
+with CE-compatible token and filters.
 """
 
 import base64
@@ -11,29 +11,28 @@ import json
 import sys
 import requests
 
-def main():
-    print("🚀 Script started.")
-    token = get_bearer_token()
-    ...
-
-
 # --- 1. Configuration (Required) ---
 
-# Kroger developer credentials
-CLIENT_ID = "grocerybottest-bbc8thbr"
-CLIENT_SECRET = "3nQXkYLZCxsALGTbnDPffBDSnuD2fWV0hoxByxKs"
+# Your Kroger CE developer credentials
+CLIENT_ID = "grocerybottest-bbc8thbr".strip()
+CLIENT_SECRET = "3nQXkYLZCxsALGTbnDPffBDSnuD2fWV0hoxByxKs".strip()
 
-# Store location ID (required for product search)
+# Store location ID (CE test store or actual location)
 LOCATION_ID = "09700491"
 
-# For Certification environment (test app)
+# Optional filters
+FULFILLMENT = "csp"
+CHAIN_CODE = "HART"
+
+# CE endpoints
 TOKEN_URL = "https://api-ce.kroger.com/v1/connect/oauth2/token"
 PRODUCTS_URL = "https://api-ce.kroger.com/v1/products"
+
 
 # --- 2. Core Functions ---
 
 def get_bearer_token():
-    """Request a new OAuth2 Bearer token using client_credentials grant."""
+    """Request a new OAuth2 Bearer token with product.compact scope."""
     print("Requesting new Bearer token...", file=sys.stderr)
 
     # Build Basic Auth header (Base64 encoded client_id:client_secret)
@@ -44,7 +43,11 @@ def get_bearer_token():
         "Content-Type": "application/x-www-form-urlencoded",
         "Authorization": f"Basic {encoded_credentials}",
     }
-    data = {"grant_type": "client_credentials"}
+
+    data = {
+        "grant_type": "client_credentials",
+        "scope": "product.compact"  # THIS IS CRITICAL
+    }
 
     response = requests.post(TOKEN_URL, headers=headers, data=data)
 
@@ -60,6 +63,7 @@ def get_bearer_token():
         print(response.text, file=sys.stderr)
         sys.exit(1)
 
+    token = token.strip()
     print("✅ Token successfully acquired.", file=sys.stderr)
     return token
 
@@ -67,11 +71,15 @@ def get_bearer_token():
 def search_product(item_query, token):
     """Search for a product by term (e.g., 'milk')."""
     print(f"Searching for product: {item_query}...", file=sys.stderr)
+
     params = {
         "filter.term": item_query,
         "filter.locationId": LOCATION_ID,
         "filter.limit": 5,
+        "filter.fulfillment": FULFILLMENT,
+        "filter.chain": CHAIN_CODE,
     }
+
     headers = {
         "Accept": "application/json",
         "Authorization": f"Bearer {token}",
@@ -87,6 +95,38 @@ def search_product(item_query, token):
 
     return response.json()
 
+
+def pretty_print_results(results):
+    """Print the top product results in a readable format."""
+    data = results.get("data", [])
+    if not data:
+        print("No results found.")
+        return
+
+    print("\n--- Top Search Results ---")
+    for product in data:
+        description = product.get("description", "N/A")
+        brand = product.get("brand", "Unknown")
+        items = product.get("items", [])
+        if items:
+            price_info = items[0].get("price", {})
+            price = price_info.get("regular", "N/A")
+        else:
+            price = "N/A"
+        print(f"- {description} ({brand}) — ${price}")
+
+
+# --- 3. Main Execution ---
+
+def main():
+    print("🚀 Script started.")
+    token = get_bearer_token()
+
+    # Test product search
+    test_item = "milk"
+    results = search_product(test_item, token)
+    pretty_print_results(results)
+
+
 if __name__ == "__main__":
     main()
-

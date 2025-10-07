@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """
-Kroger / Harris Teeter API Client - Core Functions
--------------------------------------------------
+Kroger / Harris Teeter CE API Client - Core Functions
+-----------------------------------------------------
 Performs authentication (client_credentials flow) and basic product search.
-Replaces the Bash version with a structured, Pythonic implementation.
 """
 
 import base64
@@ -11,22 +10,16 @@ import json
 import sys
 import requests
 
-def main():
-    print("🚀 Script started.")
-    token = get_bearer_token()
-    ...
-
-
 # --- 1. Configuration (Required) ---
 
-# Kroger developer credentials
+# Kroger developer credentials (for CE environment)
 CLIENT_ID = "grocerybottest-bbc8thbr"
 CLIENT_SECRET = "3nQXkYLZCxsALGTbnDPffBDSnuD2fWV0hoxByxKs"
 
 # Store location ID (required for product search)
 LOCATION_ID = "09700491"
 
-# For Certification environment (test app)
+# API endpoints (Certification / Test environment)
 TOKEN_URL = "https://api-ce.kroger.com/v1/connect/oauth2/token"
 PRODUCTS_URL = "https://api-ce.kroger.com/v1/products"
 
@@ -87,6 +80,33 @@ def search_product(item_query, token):
 
     return response.json()
 
+
+def pretty_print_results(results):
+    """Print the top product results in a readable format."""
+    data = results.get("data", [])
+    if not data:
+        print("No results found.")
+        return
+
+    print("\n--- Top Search Results ---")
+    for product in data:
+        description = product.get("description", "N/A")
+        brand = product.get("brand", "Unknown")
+        price_info = product.get("items", [{}])[0].get("price", {})
+        price = price_info.get("regular", "N/A")
+        print(f"- {description} ({brand}) — ${price}")
+
+
+# --- 3. Main Execution Block ---
+
+def main():
+    print("🚀 Script started.")
+    token = get_bearer_token()
+
+    # Test product search for "milk"
+    results = search_product("milk", token)
+    pretty_print_results(results)
+
+
 if __name__ == "__main__":
     main()
-
